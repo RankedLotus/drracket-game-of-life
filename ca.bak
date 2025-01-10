@@ -1,0 +1,45 @@
+#lang racket
+(require picturing-programs)
+(require 2htdp/universe)
+
+;HELPERS
+;===================================================================
+(define (cc x)
+  (+ (* x 10) 5))
+
+;DRAWING STUFF
+;===================================================================
+(define ec (rectangle 10 10 "outline" "black"))
+ec
+
+(define row (for/fold ([acc (rectangle 0 0 "solid" "transparent")])
+          ([i (in-range 0 100)])
+  (beside acc ec)))
+
+(define grid (for/fold ([acc (rectangle 0 0 "solid" "transparent")])
+          ([i (in-range 0 100)])
+  (above acc row)))
+
+;UNIVERSE
+;===================================================================
+(define init (make-vector 100 (make-vector 100 0)))
+(vector-set! (vector-ref init 12) 16 1)
+
+(define (tickh input)
+   1)
+
+(define (draw input)
+  (overlay
+   grid
+  (for*/fold ([acc (rectangle 1000 1000 "solid" "transparent")])
+             ([i (in-range 0 100)]
+              [j (in-range 0 100)])
+      (define my-var (vector-ref (vector-ref init i) j))
+      (match my-var
+        [0 (place-image (rectangle 10 10 "solid" "transparent") (cc i) (cc j) acc)]
+        [1 (place-image (rectangle 10 10 "solid" "black") (cc i) (cc j) acc)]))
+        ))
+
+(big-bang init
+  (on-tick tickh)
+  (to-draw draw))
