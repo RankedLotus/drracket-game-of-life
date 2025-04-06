@@ -1,0 +1,141 @@
+#lang racket
+
+(require racket/gui)
+(require racket/draw)
+
+
+;;HOW TO USE:
+;;CALL (start true) AFTER RUNNING
+;;ENLARGE WINDOW TO ENLARGE LOL
+
+;;IMPORTANT THINGS TO NOTE:
+;;A dc<%> object is a drawing context for drawing graphics and text. It represents output devices in a generic way; e.g., a canvas has a drawing context, as does a printer.
+
+
+(define grid-size 80); <----- set grid size here
+  (define cell-size 7)
+
+;;frame object definition
+(define window-size 400); <----- set window size here
+(define frame (new frame%
+                   [label "Test"]
+                   [width window-size]
+                   [height window-size]))
+
+;;canvas object definition
+(define canvas (new canvas%
+                    [parent frame]
+                    [paint-callback (lambda (canvas dc) (canvas-setup dc))]))
+
+(define (canvas-setup dc) ;clears the argument
+  (send dc clear))
+
+(define (canvas-paint dc)
+  ;(send dc clear)
+
+  (for* ([row grid-size]
+         [col grid-size])
+    
+      (define x (* cell-size row))
+      (define y (* cell-size col))
+      (define my-var (vector-ref my_arr (toind col row)))
+      (define fill-col
+       (match my-var
+         [0 "white"]
+         [1 "black"]))
+
+    (send dc set-pen fill-col 1 'solid)
+    (send dc set-brush fill-col 'solid)
+    (send dc draw-rectangle (add1 x) (add1 y) (sub1 cell-size) (sub1 cell-size))))
+
+
+;;timer object definition
+(define timer (new timer%
+                   [notify-callback (lambda () (timer-fired))] ;calls (timer-fired) on timer end, lambda calls nothing
+                   [interval #f] ;timer does not automatically start
+                   [just-once? #f])) ;repeats indefinitely
+
+(define (timer-fired)
+  (canvas-paint (send canvas get-dc))
+
+  ;;calculates the next generation of cellular automata
+  (define next-gen (make-vector (* 100 100) 0))
+   (for* ([i (in-range 0 100)]
+         [j (in-range 0 100)])
+     (vector-set! next-gen (toind i j) (infection-rule my_arr i j)))
+
+   (for* ([i (in-range 0 100)]
+         [j (in-range 0 100)])
+     (vector-set! my_arr (toind i j) (vector-ref next-gen (toind i j))))
+  )
+
+
+;;other stuff
+
+(define (start random?)
+  ;setting values
+  (match random?
+    [#t (for* ([i (in-range 0 100)]
+         [j (in-range 0 100)])
+     (vector-set! my_arr (toind i j) (floor (/ (random 8) 7))))] ;;<----- CHANCES OF GENERATING A PIXEL ON INITIALIZATION
+    [#f void])
+  
+  (send timer start 100) ; <----- SET TIMER INTERVAL/REFRESH RATE (in milliseconds)
+  (send frame show #t)) ;telling frame to show itself
+
+(define (stop)
+  (send timer stop)) ;ends timer
+
+
+;;ACTUAL CELLULAR AUTOMATA
+
+;2D ARRAY
+;===================================================================
+(define my_arr
+  (make-vector (* 100 100) 0))
+
+(define (toind x y)
+  (+ x (* 100 y)))
+
+;CELLULAR AUTOMATA
+;===================================================================
+(define (neighbor-sum vec real-x real-y)
+  (define x
+  (match real-x
+    [0 1]
+    [99 98]
+    [_ real-x]))
+
+  (define y
+  (match real-y
+    [0 1]
+    [99 98]
+    [_ real-y]))
+ 
+  (define n (vector-ref vec (toind x (- y 1))))
+  (define nw (vector-ref vec (toind (- x 1) (- y 1))))
+  (define w (vector-ref vec (toind (- x 1) y)))
+  (define sw (vector-ref vec (toind (- x 1) (+ y 1))))
+  (define s (vector-ref vec (toind x (+ y 1))))
+  (define se (vector-ref vec (toind (+ 1 x) (+ y 1))))
+  (define e (vector-ref vec (toind (+ x 1) y)))
+  (define ne (vector-ref vec (toind (+ 1 x) (- y 1))))
+  (define sum (+ n nw w sw s se e ne))
+  sum)
+
+(define (infection-rule vec x y)
+  (define sum (neighbor-sum vec x y))
+  ;;RULESET (IF NEIGHBOR SUM == N THEN SET TO 1 OR 0)
+  (cond
+    [(= sum 0) 0]
+    [(= sum 1) 0]
+    [(= sum 2) 1]
+    [(= sum 3) 1]
+    ;[(= sum 3) (match (vector-ref vec (toind x y))
+    ;            [0 1]
+    ;            [1 0])]
+    [(= sum 4) 1]
+    [(= sum 5) 0]
+    [(= sum 6) 1]
+    [(= sum 7) 0]
+    [else 0]))
